@@ -1,3 +1,18 @@
+"""
+Script: SkyPrep Data Migration Tool
+Description: This tool provides functionalities for transferring data
+             from ADP reports to SkyPrep Bulk update templates
+             using an interactive GUI interface.
+Version: 1.0
+Date: 2024-12-20
+Developer: Saikat Datta
+"""
+# region Imports
+# -----------------------------------------------------------
+# Imports Section
+# Handles all library and module imports required for the script
+# -----------------------------------------------------------
+
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import openpyxl  # For reading and writing Excel files
@@ -5,29 +20,20 @@ import os
 import pandas as pd
 from datetime import datetime
 
-def show_frame(frame):
-    """Bring the selected frame to the front."""
-    frame.tkraise()
-
-def on_enter(e):
-    """Change button color on hover to a darker version."""
-    idx = button_widgets.index(e.widget)
-    original_color = buttons[idx][1]
-    # Darken the color slightly
-    darker_color = "#%02x%02x%02x" % tuple(max(0, int(original_color[i:i+2], 16) - 30) for i in (1, 3, 5))
-    e.widget['bg'] = darker_color
-
-def on_leave(e):
-    """Revert button color when hover ends."""
-    idx = button_widgets.index(e.widget)
-    e.widget['bg'] = buttons[idx][1]  # Original color
-
 # Global variable to store the path of the uploaded file
 uploaded_file_path = ""
 transform_main_file_path = ""
 course_mapping_file_path = ""
 user_list_file_path = ""
 transfer_file_path = ""
+#endregion
+
+# region Cleanse Report
+# -----------------------------------------------------------
+# Cleanse Report Section
+# Handles the cleansing of data, applying rules, and saving
+# the cleansed report to a new Excel file.
+# -----------------------------------------------------------
 
 def browse_file():
     """Browse and select an Excel file."""
@@ -125,6 +131,14 @@ def start_cleanse():
         messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
+# endregion
+
+# region Transform Report
+# -----------------------------------------------------------
+# Transform Report Section
+# Manages the transformation of data, including mapping fields,
+# modifying structures and preparing the transformed report.
+# -----------------------------------------------------------
 
 def browse_transform_main_file():
     """Browse and select the main Excel file for transformation."""
@@ -301,6 +315,14 @@ def start_transformation_logic():
     finally:
         # Remove the progress bar after completion
         progress_bar.pack_forget()
+# endregion
+
+# region Transfer Report
+# -----------------------------------------------------------
+# Transfer Report Section
+# Facilitates data transfer operations, including organizing
+# data into the target format and saving the result.
+# -----------------------------------------------------------
 
 def select_transfer_file():
     """Select an Excel file for the Transfer section."""
@@ -327,7 +349,7 @@ def generate_destination_columns(max_courses=71):
 def start_transfer_logic():
     """Transfer the source data into the desired format."""
     if not (transfer_file_path):
-        messagebox.showerror("Error", "Please upload all required files.")
+        messagebox.showerror("Error", "Please upload an Excel file before starting.")
         return
     try:
         # Load the source file
@@ -335,6 +357,7 @@ def start_transfer_logic():
 
         # Generate destination columns dynamically
         destination_columns = generate_destination_columns(max_courses=71)
+
         # Create an empty DataFrame with the destination format columns
         output_df = pd.DataFrame(columns=destination_columns)
         grouped = source_df.groupby('SkyPrep ID')
@@ -375,8 +398,15 @@ def start_transfer_logic():
             messagebox.showinfo("Success", f"File saved successfully:\n{output_file_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
+# endregion
 
-# Main window setup
+# region Main Window
+# -----------------------------------------------------------
+# Main Window Section
+# Sets up the main GUI window, including navigation buttons,
+# layout configuration and frame management.
+# -----------------------------------------------------------
+
 root = tk.Tk()
 root.title("SkyPrep Migration Tool")
 root.geometry("600x400")
@@ -420,7 +450,7 @@ for frame in (cleanse_frame, transform_frame, compare_frame, transfer_frame):
     frame.place(relwidth=1, relheight=1)
 
 # Add widgets to the Cleanse Screen
-tk.Label(cleanse_frame, text="Cleanse Section", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+tk.Label(cleanse_frame, text="Cleanse Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
 file_button = tk.Button(cleanse_frame, text="Browse", font=("Arial", 12), command=browse_file)
 file_button.pack(pady=5)
@@ -432,28 +462,24 @@ start_button = tk.Button(cleanse_frame, text="Start Cleanse", font=("Arial", 12)
 start_button.pack(pady=10)
 
 # Add widgets to the Transform Screen
-tk.Label(transform_frame, text="Transform Section", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+tk.Label(transform_frame, text="Transform Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
-# Browse main file
 tk.Button(transform_frame, text="Select Cleansed Report", font=("Arial", 12), command=browse_transform_main_file).pack(pady=5)
 transform_main_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
 transform_main_file_label.pack(pady=5)
 
-# Browse course mapping file
 tk.Button(transform_frame, text="Add Course Mapping", font=("Arial", 12), command=browse_course_mapping_file).pack(pady=5)
 course_mapping_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
 course_mapping_file_label.pack(pady=5)
 
-# Browse user list file
 tk.Button(transform_frame, text="Add User List", font=("Arial", 12), command=browse_user_list_file).pack(pady=5)
 user_list_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
 user_list_file_label.pack(pady=5)
 
-# Start Transformation button
 tk.Button(transform_frame, text="Start Transformation", font=("Arial", 12), command=start_transformation_logic).pack(pady=10)
 
 # Add widgets to the Transfer Screen
-tk.Label(transfer_frame, text="Transfer Section", bg="#F5F5F5", font=("Arial", 16)).pack(pady=5)
+tk.Label(transfer_frame, text="Transfer Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
 transfer_browse_button = tk.Button(transfer_frame, text="Browse", font=("Arial", 12), command=select_transfer_file)
 transfer_browse_button.pack(pady=5)
@@ -461,16 +487,31 @@ transfer_browse_button.pack(pady=5)
 transfer_file_label = tk.Label(transfer_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 transfer_file_label.pack(pady=5)
 
-# Start Transfer button
 start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 12), command=start_transfer_logic)
 start_transfer_button.pack(pady=10)
 
 # Add widgets to other screens (optional content placeholders)
-tk.Label(compare_frame, text="Compare Screen", bg="#F5F5F5", font=("Arial", 16)).pack(pady=20)
+tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+
+# Bring the selected frame to the front
+def show_frame(frame):
+    frame.tkraise()
+
+# Change button color on hover to a darker version
+def on_enter(e):    
+    idx = button_widgets.index(e.widget)
+    original_color = buttons[idx][1]
+    # Darken the color slightly
+    darker_color = "#%02x%02x%02x" % tuple(max(0, int(original_color[i:i+2], 16) - 30) for i in (1, 3, 5))
+    e.widget['bg'] = darker_color
+
+# Revert button color when hover ends
+def on_leave(e):    
+    idx = button_widgets.index(e.widget)
+    e.widget['bg'] = buttons[idx][1]  # Original color
 
 # Function to dynamically resize buttons with spacing and padding
-def resize_buttons():
-    """Set rectangular buttons with uniform size."""
+def resize_buttons():    
     frame_width = menu_frame.winfo_width()
     button_width = frame_width - 2 * padding  # Button width matches the menu frame width with padding
     button_height = 60  # Fixed height for all buttons
@@ -510,7 +551,7 @@ for text, color, frame in buttons:
     btn.bind("<Leave>", on_leave)
     button_widgets.append(btn)
 
-# Bind the resize event to dynamically adjust button size, padding, and spacing
+# Bind the resize event to dynamically adjust button size, padding and spacing
 menu_frame.bind("<Configure>", lambda e: resize_buttons())
 
 # Show the first screen by default
@@ -518,3 +559,5 @@ show_frame(cleanse_frame)
 
 # Run the application
 root.mainloop()
+
+# endregion
