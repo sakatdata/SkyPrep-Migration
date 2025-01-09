@@ -56,131 +56,141 @@ def start_cleanse():
         progress_bar = ttk.Progressbar(bottom_bar, orient="horizontal", mode="determinate", length=400)
         progress_bar.pack(pady=5)
         
-        # Open the uploaded Excel file
-        wb = openpyxl.load_workbook(cleanse_file_path)
-        sheet = wb.active
+        if report_type == "All_Course_Progresses":
+            # Handle Duplicate Removal logic
+            df = pd.read_excel(cleanse_file_path)
+            df["Email_Course"] = df["Email"] + " | " + df["Course Name"]
+            df = df.sort_values(by=["Email_Course", "Start Date", "Completion Date", "Expiration Date"], ascending=[True, False, False, False])
+            df_cleaned = df.drop_duplicates(subset=["Email_Course"], keep="first")
+            df_cleaned = df_cleaned.drop(columns=["Email_Course"])
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Save Cleansed Data",
+                initialfile="Output_Voyago_All_Course_Progresses_Report_Cleansed.xlsx"
+            )
+            if not save_path:
+                messagebox.showinfo("Cancelled", "Save operation was cancelled.")
+                progress_bar.pack_forget()
+                return
+            df_cleaned.to_excel(save_path, index=False)
+            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
 
-        # Create a new workbook for the cleansed data
-        new_wb = openpyxl.Workbook()
-        new_sheet = new_wb.active
+        elif report_type == "Deficiency_Recertification":
+            # Handle Deficiency Recertification logic
+            wb = openpyxl.load_workbook(cleanse_file_path)
+            sheet = wb.active
+            new_wb = openpyxl.Workbook()
+            new_sheet = new_wb.active
 
-        # Define column headers and rules based on the selected report
-        if report_type == "Deficiency_Recertification":
             required_columns = [
-                "Position ID",
-                "Payroll Name",
-                "Course Name Description",
-                "Start Date",
-                "Recertification Date",
-                "Acquired Date",
+                "Position ID", "Payroll Name", "Course Name Description",
+                "Start Date", "Recertification Date", "Acquired Date",
             ]
+            headers = [cell.value for cell in sheet[1]]
+            required_indices = [headers.index(col) for col in required_columns]
+
+            new_sheet.append(required_columns)
+            total_rows = sheet.max_row - 1
+            progress_bar["maximum"] = total_rows
+
+            for idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=1):
+                progress_bar["value"] = idx
+                progress_bar.update()
+                row_list = list(row)
+                filtered_row = [row_list[idx] for idx in required_indices]
+
+                start_date = filtered_row[required_columns.index("Start Date")]
+                recertification_date = filtered_row[required_columns.index("Recertification Date")]
+                acquired_date = filtered_row[required_columns.index("Acquired Date")]
+
+                if start_date and not recertification_date and not acquired_date:
+                    pass
+                elif start_date and acquired_date and not recertification_date:
+                    filtered_row[required_columns.index("Recertification Date")] = None
+                    filtered_row[required_columns.index("Acquired Date")] = None
+                elif start_date and recertification_date:
+                    if recertification_date > start_date:
+                        filtered_row[required_columns.index("Acquired Date")] = start_date
+                    elif recertification_date == start_date:
+                        filtered_row[required_columns.index("Recertification Date")] = None
+                        filtered_row[required_columns.index("Acquired Date")] = None
+                    elif recertification_date < start_date:
+                        filtered_row[required_columns.index("Recertification Date")] = None
+                        filtered_row[required_columns.index("Acquired Date")] = None
+
+                new_sheet.append(filtered_row)
+
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Save Cleansed Data",
+                initialfile="Output_Voyago_Deficiency_Recertification_Report_Cleansed.xlsx"
+            )
+            if not save_path:
+                messagebox.showinfo("Cancelled", "Save operation was cancelled.")
+                progress_bar.pack_forget()
+                return
+            new_wb.save(save_path)
+            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
+
         elif report_type == "Policies_Certifications_Vaccines_Licences":
+            # Handle Policies, Certifications, Vaccines, and Licenses logic
+            wb = openpyxl.load_workbook(cleanse_file_path)
+            sheet = wb.active
+            new_wb = openpyxl.Workbook()
+            new_sheet = new_wb.active
+
             required_columns = [
-                "Position ID",
-                "Payroll Name",
-                "Course Name Description",
-                "Start Date",
-                "Recertification Date",
-                "Acquired Date",
+                "Position ID", "Payroll Name", "Course Name Description",
+                "Start Date", "Recertification Date", "Acquired Date",
             ]
+            headers = [cell.value for cell in sheet[1]]
+            required_indices = [headers.index(col) for col in required_columns]
 
-        # Initialize progress bar
-        total_rows = sheet.max_row - 1  # Exclude the header row
-        progress_bar["maximum"] = total_rows
+            new_sheet.append(required_columns)
+            total_rows = sheet.max_row - 1
+            progress_bar["maximum"] = total_rows
 
-        # Get column indices based on headers
-        headers = [cell.value for cell in sheet[1]]
-        required_indices = [headers.index(col) for col in required_columns]
+            for idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=1):
+                progress_bar["value"] = idx
+                progress_bar.update()
+                row_list = list(row)
+                filtered_row = [row_list[idx] for idx in required_indices]
 
-        # Write only the required headers to the new sheet
-        new_sheet.append(required_columns)
-
-        # Process each row after the header
-        for idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=1):
-            # Update progress bar
-            progress_bar["value"] = idx
-            progress_bar.update()
-            
-            row_list = list(row)  # Convert tuple to list to modify
-
-            # Extract only the required columns for processing
-            filtered_row = [row_list[idx] for idx in required_indices]
-
-            # Apply cleansing logic (for report type Deficiency_Recertification)
-            if report_type == "Deficiency_Recertification":
                 start_date = filtered_row[required_columns.index("Start Date")]
                 recertification_date = filtered_row[required_columns.index("Recertification Date")]
                 acquired_date = filtered_row[required_columns.index("Acquired Date")]
 
-                # Rule 1: If there is a Start Date but no Recertification Date or Acquired Date, keep as is.
                 if start_date and not recertification_date and not acquired_date:
-                    pass  # No change needed
-
-                # Rule 2: If Start Date and Acquired Date exist, but no Recertification Date, clear both fields.
+                    pass
                 elif start_date and acquired_date and not recertification_date:
                     filtered_row[required_columns.index("Recertification Date")] = None
                     filtered_row[required_columns.index("Acquired Date")] = None
-
-                # Rule 3: If Start Date and Recertification Date exist, check their values.
                 elif start_date and recertification_date:
                     if recertification_date > start_date:
-                        # Write Start Date as Acquired Date
                         filtered_row[required_columns.index("Acquired Date")] = start_date
                     elif recertification_date == start_date:
-                        # Do not write anything in Recertification Date and Acquired Date
                         filtered_row[required_columns.index("Recertification Date")] = None
                         filtered_row[required_columns.index("Acquired Date")] = None
                     elif recertification_date < start_date:
-                        # Clear both Recertification Date and Acquired Date
-                        filtered_row[required_columns.index("Recertification Date")] = None
-                        filtered_row[required_columns.index("Acquired Date")] = None
-            
-            # Apply cleansing logic (for report type Policies_Certifications_Vaccines_Licences)
-            elif report_type == "Policies_Certifications_Vaccines_Licences":
-                start_date = filtered_row[required_columns.index("Start Date")]
-                recertification_date = filtered_row[required_columns.index("Recertification Date")]
-                acquired_date = filtered_row[required_columns.index("Acquired Date")]
-
-                # Rule 1: If there is a Start Date but no Recertification Date or Acquired Date, keep as is.
-                if start_date and not recertification_date and not acquired_date:
-                    pass  # No change needed
-
-                # Rule 2: If Start Date and Acquired Date exist, but no Recertification Date, clear both fields.
-                elif start_date and acquired_date and not recertification_date:
-                    filtered_row[required_columns.index("Recertification Date")] = None
-                    filtered_row[required_columns.index("Acquired Date")] = None
-
-                # Rule 3: If Start Date and Recertification Date exist, check their values.
-                elif start_date and recertification_date:
-                    if recertification_date > start_date:
-                        # Write Start Date as Acquired Date
-                        filtered_row[required_columns.index("Acquired Date")] = start_date
-                    elif recertification_date == start_date:
-                        # Do not write anything in Recertification Date and Acquired Date
-                        filtered_row[required_columns.index("Recertification Date")] = None
-                        filtered_row[required_columns.index("Acquired Date")] = None
-                    elif recertification_date < start_date:
-                        # Clear both Recertification Date and Acquired Date
                         filtered_row[required_columns.index("Recertification Date")] = None
                         filtered_row[required_columns.index("Acquired Date")] = None
 
-            # Append the processed filtered row to the new sheet
-            new_sheet.append(filtered_row)
+                new_sheet.append(filtered_row)
 
-        # Ask the user where to save the new workbook
-        save_path = filedialog.asksaveasfilename(
-            defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-            title="Save Cleansed Data",
-        )
-        if not save_path:
-            messagebox.showinfo("Cancelled", "Save operation was cancelled.")
-            progress_bar.pack_forget()  # Remove progress bar on cancel
-            return
-
-        # Save the new workbook to the chosen path
-        new_wb.save(save_path)
-        messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Save Cleansed Data",
+                initialfile="Output_Voyago_Policies_Certifications_Vaccines_Licences_Report_Cleansed.xlsx"
+            )
+            if not save_path:
+                messagebox.showinfo("Cancelled", "Save operation was cancelled.")
+                progress_bar.pack_forget()
+                return
+            new_wb.save(save_path)
+            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
     finally:
@@ -393,6 +403,7 @@ def start_transformation_logic():
             defaultextension=".xlsx",
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
             title="Save Transformed Data",
+            initialfile="Output_Voyago_All_Course_Progresses_Report.xlsx"
         )
         if not save_path:
             messagebox.showinfo("Cancelled", "Save operation was cancelled.")
@@ -435,7 +446,8 @@ def generate_destination_columns(max_courses=70):
     columns = ['skyprep_internal_id', 'first_name', 'last_name', 'email_or_username', 'work_phone']
     for i in range(1, max_courses + 1):
         columns.extend([
-            f'course {i}', f'course {i} status', f'course {i} date started', f'course {i} date finished', f'course {i} access date', f'course {i} deadline date', f'course {i} expiration date'
+            f'course {i}', f'course {i} status', f'course {i} date started', f'course {i} date finished',
+            f'course {i} access date', f'course {i} deadline date', f'course {i} expiration date'
         ])
     return columns
 
@@ -445,17 +457,28 @@ def start_transfer_logic():
         messagebox.showerror("Error", "Please upload an Excel file before starting.")
         return
     try:
+        # Create the progress bar
+        progress_bar = ttk.Progressbar(bottom_bar, orient="horizontal", mode="determinate", length=400)
+        progress_bar.pack(pady=5)
+
         # Load the source file
         source_df = pd.read_excel(transfer_file_path)
 
         # Generate destination columns dynamically
         destination_columns = generate_destination_columns()
 
+        # Initialize a list to collect rows
+        rows_list = []
+
         # Create an empty DataFrame with the destination format columns
         output_df = pd.DataFrame(columns=destination_columns)
         grouped = source_df.groupby('SkyPrep ID')
 
-        for employee, group in grouped:
+        # Set progress bar maximum to the number of groups
+        total_groups = len(grouped)
+        progress_bar["maximum"] = total_groups
+
+        for idx, (employee, group) in enumerate(grouped, start=1):
             row = {col: '' for col in destination_columns}
             row['skyprep_internal_id'] = employee
             row['first_name'] = group['First name'].iloc[0]
@@ -481,19 +504,31 @@ def start_transfer_logic():
                         row[f'course {i} expiration date'] = expiration_date
                         break
 
-            output_df = pd.concat([output_df, pd.DataFrame([row])], ignore_index=True)
+            # Add the row to the list
+            rows_list.append(row)
+
+            # Update the progress bar
+            progress_bar["value"] = idx
+            progress_bar.update()
+            
+        # After processing all rows, create the final DataFrame
+        output_df = pd.DataFrame(rows_list, columns=destination_columns)
 
         # Save the transformed data to a new file
         output_file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             filetypes=[("Excel Files", "*.xlsx")],
-            title="Save Transformed File"
+            title="Save Transformed File",
+            initialfile="Output_SkyPrep_Bulk_Update_User_List (including courses).xlsx"
         )
         if output_file_path:
             output_df.to_excel(output_file_path, index=False, engine='openpyxl')
             messagebox.showinfo("Success", f"File saved successfully:\n{output_file_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
+    finally:
+        # Remove the progress bar after completion
+        progress_bar.pack_forget()
 # endregion
 
 # region Main Window
@@ -554,16 +589,22 @@ label_select_report.pack(pady=5)
 selected_report = tk.StringVar(value="Deficiency_Recertification")  # Default report selection
 
 radio_deficiency = tk.Radiobutton(
-    cleanse_frame, text="Deficiency_Recertification Report", variable=selected_report,
+    cleanse_frame, text="ADP Deficiency_Recertification Report", variable=selected_report,
     value="Deficiency_Recertification", bg="#F5F5F5", font=("Arial", 10)
 )
 radio_deficiency.pack(anchor="w", padx=(50, 0), pady=(10, 0))
 
 radio_policies = tk.Radiobutton(
-    cleanse_frame, text="Policies_Certifications_Vaccines_Licences Report", variable=selected_report,
+    cleanse_frame, text="ADP Policies_Certifications_Vaccines_Licences Report", variable=selected_report,
     value="Policies_Certifications_Vaccines_Licences", bg="#F5F5F5", font=("Arial", 10)
 )
-radio_policies.pack(anchor="w", padx=(50, 0), pady=(0, 10))
+radio_policies.pack(anchor="w", padx=(50, 0), pady=(0, 0))
+
+radio_courses = tk.Radiobutton(
+    cleanse_frame, text="SkyPrep All_Course_Progresses Report", variable=selected_report,
+    value="All_Course_Progresses", bg="#F5F5F5", font=("Arial", 10)
+)
+radio_courses.pack(anchor="w", padx=(50, 0), pady=(0, 10))
 
 file_button = tk.Button(cleanse_frame, text="Browse", font=("Arial", 12), command=browse_file)
 file_button.pack(pady=5)
