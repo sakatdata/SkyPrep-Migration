@@ -14,10 +14,12 @@ Developer: Saikat Datta
 # -----------------------------------------------------------
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-import openpyxl  # For reading and writing Excel files
+import openpyxl
 import os
+import openpyxl.styles
 import pandas as pd
 from datetime import datetime
+import logging
 #endregion
 
 # region Cleanse Report
@@ -58,11 +60,11 @@ def start_cleanse():
         
         if report_type == "All_Course_Progresses":
             # Handle Duplicate Removal logic
-            df = pd.read_excel(cleanse_file_path)
-            df["Email_Course"] = df["Email"] + " | " + df["Course Name"]
-            df = df.sort_values(by=["Email_Course", "Start Date", "Completion Date", "Expiration Date"], ascending=[True, False, False, False])
-            df_cleaned = df.drop_duplicates(subset=["Email_Course"], keep="first")
-            df_cleaned = df_cleaned.drop(columns=["Email_Course"])
+            data_frame = pd.read_excel(cleanse_file_path)
+            data_frame["Email_Course"] = data_frame["Email"] + " | " + data_frame["Course Name"]
+            data_frame = data_frame.sort_values(by=["Email_Course", "Start Date", "Completion Date", "Expiration Date"], ascending=[True, False, False, False])
+            data_frame_cleaned = data_frame.drop_duplicates(subset=["Email_Course"], keep="first")
+            data_frame_cleaned = data_frame_cleaned.drop(columns=["Email_Course"])
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
@@ -73,7 +75,7 @@ def start_cleanse():
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
                 progress_bar.pack_forget()
                 return
-            df_cleaned.to_excel(save_path, index=False)
+            data_frame_cleaned.to_excel(save_path, index=False)
             messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
 
         elif report_type == "Deficiency_Recertification":
@@ -462,7 +464,7 @@ def start_transfer_logic():
         progress_bar.pack(pady=5)
 
         # Load the source file
-        source_df = pd.read_excel(transfer_file_path)
+        source_data_frame = pd.read_excel(transfer_file_path)
 
         # Generate destination columns dynamically
         destination_columns = generate_destination_columns()
@@ -471,8 +473,8 @@ def start_transfer_logic():
         rows_list = []
 
         # Create an empty DataFrame with the destination format columns
-        output_df = pd.DataFrame(columns=destination_columns)
-        grouped = source_df.groupby('SkyPrep ID')
+        output_data_frame = pd.DataFrame(columns=destination_columns)
+        grouped = source_data_frame.groupby('SkyPrep ID')
 
         # Set progress bar maximum to the number of groups
         total_groups = len(grouped)
@@ -512,7 +514,7 @@ def start_transfer_logic():
             progress_bar.update()
             
         # After processing all rows, create the final DataFrame
-        output_df = pd.DataFrame(rows_list, columns=destination_columns)
+        output_data_frame = pd.DataFrame(rows_list, columns=destination_columns)
 
         # Save the transformed data to a new file
         output_file_path = filedialog.asksaveasfilename(
@@ -522,13 +524,153 @@ def start_transfer_logic():
             initialfile="Output_SkyPrep_Bulk_Update_User_List (including courses).xlsx"
         )
         if output_file_path:
-            output_df.to_excel(output_file_path, index=False, engine='openpyxl')
+            output_data_frame.to_excel(output_file_path, index=False, engine='openpyxl')
             messagebox.showinfo("Success", f"File saved successfully:\n{output_file_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
     finally:
         # Remove the progress bar after completion
         progress_bar.pack_forget()
+# endregion
+
+# region Compare Report
+# -----------------------------------------------------------
+# Compare Report Section
+# Facilitates data comparison between the generated user list
+# and the bulk update user list downloaded from SkyPrep.
+# -----------------------------------------------------------
+compare_file_path = ""
+reference_file_path = ""
+
+def select_compare_file():
+    """Select the Compare Excel file."""
+    global compare_file_path
+    file_path = filedialog.askopenfilename(
+        title="Select Compare Excel File",
+        filetypes=[("Excel Files", "*.xlsx *.xls"), ("All Files", "*.*")]
+    )
+    if file_path:
+        compare_file_path = file_path
+        compare_file_label.config(text=f"Compare File: {os.path.basename(file_path)}")
+    else:
+        compare_file_label.config(text="No file selected")
+
+def select_reference_file():
+    """Select the Reference Excel file."""
+    global reference_file_path
+    file_path = filedialog.askopenfilename(
+        title="Select Reference Excel File",
+        filetypes=[("Excel Files", "*.xlsx *.xls"), ("All Files", "*.*")]
+    )
+    if file_path:
+        reference_file_path = file_path
+        reference_file_label.config(text=f"Reference File: {os.path.basename(file_path)}")
+    else:
+        reference_file_label.config(text="No file selected")
+
+def start_compare_logic():
+    """Compare the uploaded sheets and update values based on the comparison."""
+    if not (compare_file_path and reference_file_path):
+        messagebox.showerror("Error", "Please upload both files for comparison.")
+        return
+    
+    # Configure logging to write to a file
+    logging.basicConfig(
+        filename="update_log.txt",
+        filemode="w",
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=logging.INFO
+    )
+
+    try:
+        # Load the Compare and Reference workbooks
+        compare_wb = openpyxl.load_workbook(compare_file_path)
+        reference_wb = openpyxl.load_workbook(reference_file_path)
+        
+        # Assume the first sheet is the active one in both files
+        compare_sheet = compare_wb.active
+        reference_sheet = reference_wb.active
+
+        # Get the headers from both sheets
+        compare_headers = [cell.value for cell in compare_sheet[1]]
+        reference_headers = [cell.value for cell in reference_sheet[1]]
+
+        # Define the key column for matching rows
+        key_column = "skyprep_internal_id"
+
+        # Find the index of the key column in both sheets
+        compare_key_idx = compare_headers.index(key_column)
+        reference_key_idx = reference_headers.index(key_column)
+
+        # Loop through each row in the Compare sheet (starting from the second row)
+        for compare_row_idx, compare_row in enumerate(compare_sheet.iter_rows(min_row=2, values_only=True), start=2):
+            compare_key = compare_row[compare_key_idx]
+
+            # Search for the matching key in the Reference sheet
+            for reference_row in reference_sheet.iter_rows(min_row=2, values_only=True):
+                if reference_row[reference_key_idx] == compare_key:
+                    
+                    # Match found, loop through the 70 courses
+                    for i in range(1, 71):
+                        # Define course column group names dynamically
+                        column_names = [
+                            f"course {i}",
+                            f"course {i} status",
+                            f"course {i} date started",
+                            f"course {i} date finished",
+                            f"course {i} expiration date",
+                        ]
+
+                        # Check if these columns exist in both sheets
+                        if all(col in compare_headers and col in reference_headers for col in column_names):
+                            # Get column indices dynamically
+                            compare_indices = {name: compare_headers.index(name) for name in column_names}
+                            reference_indices = {name: reference_headers.index(name) for name in column_names}
+
+                            # Extract values from Compare and Reference rows
+                            compare_values = {name: compare_row[idx] for name, idx in compare_indices.items()}
+                            reference_values = {name: reference_row[idx] for name, idx in reference_indices.items()}
+
+                            # Treat reference values as None if they equal "'-"
+                            for key in ["date started", "date finished", "expiration date"]:
+                                col_name = f"course {i} {key}"
+                                if reference_values[col_name] == "'-":
+                                    reference_values[col_name] = None
+
+                            # Skip this course if course {i} in the Compare file is None
+                            if compare_values[f"course {i}"] is None:
+                                continue
+
+                            # Compare and update the Compare sheet if necessary
+                            if reference_values[f"course {i} date started"] and (
+                                not compare_values[f"course {i} date started"]
+                                or reference_values[f"course {i} date started"] > compare_values[f"course {i} date started"]
+                            ):
+                                # Log the update
+                                logging.info(
+                                    f"Row {compare_row_idx}, Course {i}: "
+                                    f"Updated 'date started' from {compare_values[f'course {i} date started']} to {reference_values[f'course {i} date started']}."
+                                )
+
+                                # Update the Compare sheet
+                                for key in ["status", "date started", "date finished", "expiration date"]:
+                                    col_name = f"course {i} {key}"
+                                    compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = reference_values[col_name]
+
+        # Save the updated Compare workbook
+        output_file_path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel Files", "*.xlsx")],
+            title="Save Updated Compare File",
+            initialfile="Final_Update_File.xlsx"
+        )
+        if output_file_path:
+            compare_wb.save(output_file_path)
+            messagebox.showinfo("Success", f"Updated Compare File saved to: {output_file_path}")
+
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        messagebox.showerror("Error", f"An error occurred: {e}")
 # endregion
 
 # region Main Window
@@ -580,6 +722,7 @@ compare_frame = tk.Frame(content_frame, bg="#F5F5F5")
 for frame in (cleanse_frame, transform_frame, transfer_frame, compare_frame):
     frame.place(relwidth=1, relheight=1)
 
+# region Cleanse Screen widgets
 # Add widgets to the Cleanse Screen
 tk.Label(cleanse_frame, text="Cleanse Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
@@ -614,7 +757,9 @@ file_label.pack(pady=5)
 
 start_button = tk.Button(cleanse_frame, text="Start Cleanse", font=("Arial", 12), command=start_cleanse)
 start_button.pack(pady=10)
+# endregion
 
+# region Transform Screen widgets
 # Add widgets to the Transform Screen
 tk.Label(transform_frame, text="Transform Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
@@ -631,7 +776,9 @@ user_list_file_label = tk.Label(transform_frame, text="No file selected", bg="#F
 user_list_file_label.pack(pady=5)
 
 tk.Button(transform_frame, text="Start Transformation", font=("Arial", 12), command=start_transformation_logic).pack(pady=10)
+# endregion
 
+# region Transfer Screen widgets
 # Add widgets to the Transfer Screen
 tk.Label(transfer_frame, text="Transfer Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
@@ -643,9 +790,27 @@ transfer_file_label.pack(pady=5)
 
 start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 12), command=start_transfer_logic)
 start_transfer_button.pack(pady=10)
+# endregion
 
+# region Compare Screen widgets
 # Add widgets to the Compare Screen
 tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+
+compare_browse_button = tk.Button(compare_frame, text="Select Generated Report", font=("Arial", 12), command=select_compare_file)
+compare_browse_button.pack(pady=5)
+
+compare_file_label = tk.Label(compare_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
+compare_file_label.pack(pady=5)
+
+reference_browse_button = tk.Button(compare_frame, text="Select Downloaded Report", font=("Arial", 12), command=select_reference_file)
+reference_browse_button.pack(pady=5)
+
+reference_file_label = tk.Label(compare_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
+reference_file_label.pack(pady=5)
+
+start_compare_button = tk.Button(compare_frame, text="Start Compare", font=("Arial", 12), command=start_compare_logic)
+start_compare_button.pack(pady=10)
+# endregion
 
 # Bring the selected frame to the front
 def show_frame(frame):
