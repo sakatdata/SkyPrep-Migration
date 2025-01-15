@@ -354,8 +354,8 @@ def start_transformation_logic():
             course_name_skyprep = None
             for mapping_row in course_mapping_sheet.iter_rows(min_row=2, values_only=True):
                 if mapping_row[0] == course_name_description:
-                    course_number_skyprep = mapping_row[2]
-                    course_name_skyprep = mapping_row[1]
+                    course_number_skyprep = mapping_row[1]
+                    course_name_skyprep = mapping_row[2]
                     break
 
             # Skip the row if the corresponding course mapping value is Discard
@@ -443,7 +443,7 @@ def select_transfer_file():
     else:
         transfer_file_label.config(text="No file selected")
 
-def generate_destination_columns(max_courses=70):
+def generate_destination_columns(max_courses=71):
     """Dynamically generate destination columns."""
     columns = ['skyprep_internal_id', 'first_name', 'last_name', 'email_or_username', 'work_phone']
     for i in range(1, max_courses + 1):
@@ -631,7 +631,7 @@ def start_compare_logic():
                             compare_values = {name: compare_row[idx] for name, idx in compare_indices.items()}
                             reference_values = {name: reference_row[idx] for name, idx in reference_indices.items()}
 
-                            # Treat reference values as None if they equal "'-"
+                            # Treat reference values as None if they equal to "'-"
                             for key in ["date started", "date finished", "expiration date"]:
                                 col_name = f"course {i} {key}"
                                 if reference_values[col_name] == "'-":
