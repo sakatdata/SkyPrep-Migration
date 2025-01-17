@@ -69,7 +69,7 @@ def start_cleanse():
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
                 title="Save Cleansed Data",
-                initialfile="Output_Voyago_All_Course_Progresses_Report_Cleansed.xlsx"
+                initialfile="Output_ADP_All_Course_Progresses_Report_Cleansed.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
@@ -127,7 +127,7 @@ def start_cleanse():
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
                 title="Save Cleansed Data",
-                initialfile="Output_Voyago_Deficiency_Recertification_Report_Cleansed.xlsx"
+                initialfile="Output_ADP_Deficiency_Recertification_Report_Cleansed.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
@@ -185,7 +185,7 @@ def start_cleanse():
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
                 title="Save Cleansed Data",
-                initialfile="Output_Voyago_Policies_Certifications_Vaccines_Licences_Report_Cleansed.xlsx"
+                initialfile="Output_ADP_Policies_Certifications_Vaccines_Licences_Report_Cleansed.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
@@ -289,7 +289,7 @@ def start_transformation_logic():
         # Define additional static fields for the transformed sheet
         additional_fields = {
             "Login Status": lambda email: "Active" if email else "Not found",
-            "Course Progress Status": lambda recertification_date: "passed" if recertification_date else "in-progress",
+            "Course Progress Status": lambda recertification_date: "passed" if recertification_date else "not-started",
             "Deadline Date": lambda: "",  # Always blank
         }
 
@@ -405,7 +405,7 @@ def start_transformation_logic():
             defaultextension=".xlsx",
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
             title="Save Transformed Data",
-            initialfile="Output_Voyago_All_Course_Progresses_Report.xlsx"
+            initialfile="Output_ADP_All_Course_Progresses_Report.xlsx"
         )
         if not save_path:
             messagebox.showinfo("Cancelled", "Save operation was cancelled.")
@@ -521,7 +521,7 @@ def start_transfer_logic():
             defaultextension=".xlsx",
             filetypes=[("Excel Files", "*.xlsx")],
             title="Save Transformed File",
-            initialfile="Output_SkyPrep_Bulk_Update_User_List (including courses).xlsx"
+            initialfile="Output_ADP_Bulk_Update_User_List (including courses).xlsx"
         )
         if output_file_path:
             output_data_frame.to_excel(output_file_path, index=False, engine='openpyxl')
@@ -574,15 +574,38 @@ def start_compare_logic():
         messagebox.showerror("Error", "Please upload both files for comparison.")
         return
     
+
+
+    # Define the log file name
+    log_file = "update_log.txt"
+
+    # Write the header before setting up logging
+    with open(log_file, "w") as log:
+        log.write(
+            "Timestamp,"
+            "Skyprep_ID,"
+            "Last_Name,"
+            "First_Name,"
+            "Row_Number,"
+            "Course_ID,"
+            "Course_Name(SkyPrep),"
+            "ADP_Start_Date(Old),"
+            "SkyPrep_Start_Date(New)\n")
+    
     # Configure logging to write to a file
     logging.basicConfig(
-        filename="update_log.txt",
-        filemode="w",
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        filename=log_file,
+        filemode="a", # Append mode to retain the header
+        format="%(asctime)s,%(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO
     )
 
     try:
+        # Create a progress bar
+        progress_bar = ttk.Progressbar(bottom_bar, orient="horizontal", mode="determinate", length=400)
+        progress_bar.pack(pady=5)
+
         # Load the Compare and Reference workbooks
         compare_wb = openpyxl.load_workbook(compare_file_path)
         reference_wb = openpyxl.load_workbook(reference_file_path)
@@ -595,23 +618,30 @@ def start_compare_logic():
         compare_headers = [cell.value for cell in compare_sheet[1]]
         reference_headers = [cell.value for cell in reference_sheet[1]]
 
-        # Define the key column for matching rows
+        # Define the key column for matching rows and declare the total number of courses
         key_column = "skyprep_internal_id"
+        max_courses = 71
 
         # Find the index of the key column in both sheets
         compare_key_idx = compare_headers.index(key_column)
         reference_key_idx = reference_headers.index(key_column)
 
+        # Initialize progress bar
+        total_rows = compare_sheet.max_row - 1  # Exclude the header row
+        progress_bar["maximum"] = total_rows
+
         # Loop through each row in the Compare sheet (starting from the second row)
         for compare_row_idx, compare_row in enumerate(compare_sheet.iter_rows(min_row=2, values_only=True), start=2):
             compare_key = compare_row[compare_key_idx]
+            compare_last_name = compare_row[2]
+            compare_first_name = compare_row[1]
 
             # Search for the matching key in the Reference sheet
             for reference_row in reference_sheet.iter_rows(min_row=2, values_only=True):
                 if reference_row[reference_key_idx] == compare_key:
                     
-                    # Match found, loop through the 70 courses
-                    for i in range(1, 71):
+                    # Match found, loop through all the courses
+                    for i in range(1, max_courses):
                         # Define course column group names dynamically
                         column_names = [
                             f"course {i}",
@@ -631,15 +661,15 @@ def start_compare_logic():
                             compare_values = {name: compare_row[idx] for name, idx in compare_indices.items()}
                             reference_values = {name: reference_row[idx] for name, idx in reference_indices.items()}
 
+                            # Skip this course if course {i} in the Compare file is None
+                            if compare_values[f"course {i}"] is None:
+                                continue
+
                             # Treat reference values as None if they equal to "'-"
                             for key in ["date started", "date finished", "expiration date"]:
                                 col_name = f"course {i} {key}"
                                 if reference_values[col_name] == "'-":
                                     reference_values[col_name] = None
-
-                            # Skip this course if course {i} in the Compare file is None
-                            if compare_values[f"course {i}"] is None:
-                                continue
 
                             # Compare and update the Compare sheet if necessary
                             if reference_values[f"course {i} date started"] and (
@@ -648,8 +678,9 @@ def start_compare_logic():
                             ):
                                 # Log the update
                                 logging.info(
-                                    f"Row {compare_row_idx}, Course {i}: "
-                                    f"Updated 'date started' from {compare_values[f'course {i} date started']} to {reference_values[f'course {i} date started']}."
+                                    f"{compare_key},{compare_last_name},{compare_first_name},"
+                                    f"{compare_row_idx},Course {i},{compare_values[f'course {i}']},"
+                                    f"{compare_values[f'course {i} date started']},{reference_values[f'course {i} date started']}"
                                 )
 
                                 # Update the Compare sheet
@@ -657,12 +688,16 @@ def start_compare_logic():
                                     col_name = f"course {i} {key}"
                                     compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = reference_values[col_name]
 
+            # Update the progress bar
+            progress_bar["value"] = compare_row_idx - 1  # Adjust for 1-based indexing
+            progress_bar.update()
+        
         # Save the updated Compare workbook
         output_file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
             filetypes=[("Excel Files", "*.xlsx")],
             title="Save Updated Compare File",
-            initialfile="Final_Update_File.xlsx"
+            initialfile="Final_Bulk_Update_File.xlsx"
         )
         if output_file_path:
             compare_wb.save(output_file_path)
@@ -671,6 +706,9 @@ def start_compare_logic():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         messagebox.showerror("Error", f"An error occurred: {e}")
+    finally:
+        # Remove the progress bar after completion
+        progress_bar.pack_forget()
 # endregion
 
 # region Main Window
