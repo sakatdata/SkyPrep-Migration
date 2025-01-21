@@ -380,6 +380,10 @@ def start_transformation_logic():
             course_progress_status = additional_fields["Course Progress Status"](recertification_date)
             deadline_date = additional_fields["Deadline Date"]()
 
+            # Remove start date if course progress status is not started
+            if course_progress_status == "not-started":
+                start_date = None
+
             # Append to the appropriate sheet
             if login_status == "Not found":
                 # Prepare the row for the records not found sheet
@@ -443,7 +447,7 @@ def select_transfer_file():
     else:
         transfer_file_label.config(text="No file selected")
 
-def generate_destination_columns(max_courses=71):
+def generate_destination_columns(max_courses=72):
     """Dynamically generate destination columns."""
     columns = ['skyprep_internal_id', 'first_name', 'last_name', 'email_or_username', 'work_phone']
     for i in range(1, max_courses + 1):
@@ -574,29 +578,37 @@ def start_compare_logic():
         messagebox.showerror("Error", "Please upload both files for comparison.")
         return
     
-
-
     # Define the log file name
     log_file = "update_log.txt"
 
     # Write the header before setting up logging
     with open(log_file, "w") as log:
         log.write(
-            "Timestamp,"
             "Skyprep_ID,"
             "Last_Name,"
             "First_Name,"
-            "Row_Number,"
             "Course_ID,"
             "Course_Name(SkyPrep),"
-            "ADP_Start_Date(Old),"
-            "SkyPrep_Start_Date(New)\n")
+            "Final_Status,"
+            "Final_Start_Date,"
+            "Final_Finish_Date,"
+            "Final_Expiration_Date,"
+            "SkyPrep_Status,"
+            "SkyPrep_Start_Date,"
+            "SkyPrep_Finish_Date,"
+            "SkyPrep_Expiration_Date,"
+            "ADP_Status,"
+            "ADP_Start_Date,"
+            "ADP_Finish_Date,"
+            "ADP_Expiration_Date,"
+            "Row_Number,"
+            "Timestamp\n")
     
     # Configure logging to write to a file
     logging.basicConfig(
         filename=log_file,
         filemode="a", # Append mode to retain the header
-        format="%(asctime)s,%(message)s",
+        format="%(message)s,%(asctime)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO
     )
@@ -620,7 +632,7 @@ def start_compare_logic():
 
         # Define the key column for matching rows and declare the total number of courses
         key_column = "skyprep_internal_id"
-        max_courses = 71
+        max_courses = 72
 
         # Find the index of the key column in both sheets
         compare_key_idx = compare_headers.index(key_column)
@@ -640,14 +652,15 @@ def start_compare_logic():
             for reference_row in reference_sheet.iter_rows(min_row=2, values_only=True):
                 if reference_row[reference_key_idx] == compare_key:
                     
-                    # Match found, loop through all the courses
-                    for i in range(1, max_courses):
+                    # Match found - loop through all the courses
+                    for i in range(1, (max_courses + 1)):
                         # Define course column group names dynamically
                         column_names = [
                             f"course {i}",
                             f"course {i} status",
                             f"course {i} date started",
                             f"course {i} date finished",
+                            f"course {i} deadline date",
                             f"course {i} expiration date",
                         ]
 
@@ -661,33 +674,143 @@ def start_compare_logic():
                             compare_values = {name: compare_row[idx] for name, idx in compare_indices.items()}
                             reference_values = {name: reference_row[idx] for name, idx in reference_indices.items()}
 
+                            # Get course status
+                            compare_course_status = compare_values[f"course {i} status"]
+                            reference_course_status = reference_values[f"course {i} status"]
+
+                            # Get course dates
+                            compare_date_started = compare_values[f"course {i} date started"]
+                            compare_date_finished = compare_values[f"course {i} date finished"]
+                            compare_expiration_date = compare_values[f"course {i} expiration date"]
+
+                            reference_date_started = reference_values[f"course {i} date started"]
+                            reference_date_finished = reference_values[f"course {i} date finished"]
+                            reference_deadline_date = reference_values[f"course {i} deadline date"]
+                            reference_expiration_date = reference_values[f"course {i} expiration date"]
+
+                            # Variables for logging purpose only
+                            adp_course_status = compare_course_status
+                            adp_date_started = compare_date_started
+                            adp_date_finished = compare_date_finished
+                            adp_expiration_date = compare_expiration_date
+
+                            skyprep_course_status = reference_course_status
+                            skyprep_date_started = reference_date_started
+                            skyprep_date_finished = reference_date_finished
+                            skyprep_expiration_date = reference_expiration_date
+
                             # Skip this course if course {i} in the Compare file is None
-                            if compare_values[f"course {i}"] is None:
-                                continue
+                            if compare_values[f"course {i}"] is not None:
 
-                            # Treat reference values as None if they equal to "'-"
-                            for key in ["date started", "date finished", "expiration date"]:
-                                col_name = f"course {i} {key}"
-                                if reference_values[col_name] == "'-":
-                                    reference_values[col_name] = None
+                                # Initialize update needed as false
+                                update_needed = False
 
-                            # Compare and update the Compare sheet if necessary
-                            if reference_values[f"course {i} date started"] and (
-                                not compare_values[f"course {i} date started"]
-                                or reference_values[f"course {i} date started"] > compare_values[f"course {i} date started"]
-                            ):
+                                # Condition 1: If course status is 'passed' in the compare sheet
+                                if compare_course_status == "passed":
+                                    if reference_course_status == "passed":
+                                        if (reference_date_started is None) and (reference_date_finished is not None):
+                                            reference_date_started = reference_date_finished
+                                        elif (reference_date_started is not None) and (reference_date_finished is None):
+                                            reference_date_finished = reference_date_started
+                                        elif (reference_date_started is None) and (reference_date_finished is None):
+                                            reference_date_started = compare_date_started
+                                            reference_date_finished = compare_date_finished
+                                            reference_expiration_date = compare_expiration_date
+
+                                        if reference_expiration_date is None:
+                                            if compare_expiration_date.strftime("%Y") == "2050":
+                                                reference_expiration_date = compare_expiration_date
+                                            else:
+                                                reference_expiration_date = reference_date_finished + (compare_expiration_date - compare_date_finished)
+
+                                        if reference_date_started.strftime("%Y-%m-%d") == compare_date_started.strftime("%Y-%d-%m"):
+                                            update_needed = False
+                                        elif reference_date_finished > compare_date_finished:
+                                            compare_values[f"course {i} date started"] = reference_date_started
+                                            compare_values[f"course {i} date finished"] = reference_date_finished
+                                            compare_values[f"course {i} expiration date"] = reference_expiration_date
+                                        
+                                            update_needed = True
+                                    else:
+                                        update_needed = False
+
+                                # Condition 2: If course status is 'not-started' in the compare sheet
+                                elif compare_course_status == "not-started":
+                                    if (reference_course_status == "passed"):
+                                        if reference_date_started is None and reference_date_finished is not None:
+                                            reference_date_started = reference_date_finished
+                                        elif reference_date_started is not None and reference_date_finished is None:
+                                            reference_date_finished = reference_date_started
+                                        
+                                        compare_values[f"course {i} status"] = reference_course_status
+                                        compare_values[f"course {i} date started"] = reference_date_started
+                                        compare_values[f"course {i} date finished"] = reference_date_finished
+                                        compare_values[f"course {i} expiration date"] = reference_expiration_date
+
+                                        update_needed = True
+                                    
+                                    elif (reference_course_status == "in-progress"):
+                                        compare_values[f"course {i} status"] = reference_course_status
+                                        compare_values[f"course {i} date started"] = reference_date_started
+                                        compare_values[f"course {i} deadline date"] = reference_deadline_date
+
+                                        update_needed = True
+
+                                    else:
+                                        update_needed = False                                        
+
+                                if update_needed == True:
+                                    # Update Compare Sheet
+                                    for key in ["status", "date started", "date finished", "deadline date", "expiration date"]:
+                                        col_name = f"course {i} {key}"
+                                        compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = compare_values[col_name]
+
                                 # Log the update
                                 logging.info(
                                     f"{compare_key},{compare_last_name},{compare_first_name},"
-                                    f"{compare_row_idx},Course {i},{compare_values[f'course {i}']},"
-                                    f"{compare_values[f'course {i} date started']},{reference_values[f'course {i} date started']}"
+                                    f"Course {i},{compare_values[f'course {i}']},"
+                                    f"{compare_values[f'course {i} status']},"
+                                    f"{compare_values[f'course {i} date started']},"
+                                    f"{compare_values[f'course {i} date finished']},"
+                                    f"{compare_values[f'course {i} expiration date']},"
+                                    f"{skyprep_course_status},{skyprep_date_started},"
+                                    f"{skyprep_date_finished},{skyprep_expiration_date},"
+                                    f"{adp_course_status},{adp_date_started},"
+                                    f"{adp_date_finished},{adp_expiration_date},"
+                                    f"{compare_row_idx}"
                                 )
 
-                                # Update the Compare sheet
-                                for key in ["status", "date started", "date finished", "expiration date"]:
+                                #region commented backup code
+                                '''
+                                # Treat reference values as None if they equal to "'-"
+                                for key in ["date started", "date finished", "expiration date"]:
                                     col_name = f"course {i} {key}"
-                                    compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = reference_values[col_name]
+                                    if reference_values[col_name] == "'-":
+                                        reference_values[col_name] = None
 
+                                # Compare and update the Compare sheet if necessary
+                                if reference_values[f"course {i} date started"] and (
+                                    not compare_values[f"course {i} date started"]
+                                    or reference_values[f"course {i} date started"] > compare_values[f"course {i} date started"]
+                                ):
+                                    # Update the Compare sheet
+                                    for key in ["status", "date started", "date finished", "expiration date"]:
+                                        col_name = f"course {i} {key}"
+                                        compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = reference_values[col_name]
+
+                                    # Log the update
+                                    logging.info(
+                                        f"{compare_key},{compare_last_name},{compare_first_name},"
+                                        f"{compare_row_idx},Course {i},{compare_values[f'course {i}']},"
+                                        f"{compare_values[f'course {i} status']},{reference_values[f'course {i} status']},"
+                                        f"{compare_values[f'course {i} date started']},{reference_values[f'course {i} date started']},"
+                                        f"{compare_values[f'course {i} date finished']},{reference_values[f'course {i} date finished']},"
+                                        f"{compare_values[f'course {i} expiration date']},{reference_values[f'course {i} expiration date']}"
+                                    )
+
+                                '''
+                                #endregion
+            
             # Update the progress bar
             progress_bar["value"] = compare_row_idx - 1  # Adjust for 1-based indexing
             progress_bar.update()
@@ -702,6 +825,8 @@ def start_compare_logic():
         if output_file_path:
             compare_wb.save(output_file_path)
             messagebox.showinfo("Success", f"Updated Compare File saved to: {output_file_path}")
+        else:
+            messagebox.showinfo("Cancelled", "Save operation was cancelled.")
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
@@ -782,7 +907,7 @@ radio_policies = tk.Radiobutton(
 radio_policies.pack(anchor="w", padx=(50, 0), pady=(0, 0))
 
 radio_courses = tk.Radiobutton(
-    cleanse_frame, text="SkyPrep All_Course_Progresses Report", variable=selected_report,
+    cleanse_frame, text="ADP All_Course_Progresses Report", variable=selected_report,
     value="All_Course_Progresses", bg="#F5F5F5", font=("Arial", 10)
 )
 radio_courses.pack(anchor="w", padx=(50, 0), pady=(0, 10))
