@@ -22,30 +22,30 @@ from datetime import datetime
 import logging
 #endregion
 
-# region Cleanse Report
+# region Clean Report
 # -----------------------------------------------------------
-# Cleanse Report Section
+# Clean Report Section
 # Handles the cleansing of data, applying rules, and saving
-# the cleansed report to a new Excel file.
+# the cleaned report to a new Excel file.
 # -----------------------------------------------------------
-cleanse_file_path = ""
+clean_file_path = ""
 
 # Browse and select an Excel file
-def browse_file():
-    global cleanse_file_path
+def select_clean_file():
+    global clean_file_path
     file_path = filedialog.askopenfilename(
         filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
     )
     if file_path:
-        cleanse_file_path = file_path
+        clean_file_path = file_path
         file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
     else:
         file_label.config(text="No file selected")
 
 # Read the uploaded Excel file, process it, and save the result
-def start_cleanse():
-    global cleanse_file_path
-    if not cleanse_file_path:
+def start_clean_logic():
+    global clean_file_path
+    if not clean_file_path:
         messagebox.showerror("Error", "Please upload an Excel file before starting.")
         return
 
@@ -60,7 +60,7 @@ def start_cleanse():
         
         if report_type == "All_Course_Progresses":
             # Handle Duplicate Removal logic
-            data_frame = pd.read_excel(cleanse_file_path)
+            data_frame = pd.read_excel(clean_file_path)
             data_frame["Email_Course"] = data_frame["Email"] + " | " + data_frame["Course Name"]
             data_frame = data_frame.sort_values(by=["Email_Course", "Start Date", "Completion Date", "Expiration Date"], ascending=[True, False, False, False])
             data_frame_cleaned = data_frame.drop_duplicates(subset=["Email_Course"], keep="first")
@@ -68,19 +68,19 @@ def start_cleanse():
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Save Cleansed Data",
-                initialfile="Output_ADP_All_Course_Progresses_Report_Cleansed.xlsx"
+                title="Save Cleaned Data",
+                initialfile="Output_ADP_All_Course_Progresses_Report_Cleaned.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
                 progress_bar.pack_forget()
                 return
             data_frame_cleaned.to_excel(save_path, index=False)
-            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
+            messagebox.showinfo("Success", f"Cleaned data saved to: {save_path}")
 
         elif report_type == "Deficiency_Recertification":
             # Handle Deficiency Recertification logic
-            wb = openpyxl.load_workbook(cleanse_file_path)
+            wb = openpyxl.load_workbook(clean_file_path)
             sheet = wb.active
             new_wb = openpyxl.Workbook()
             new_sheet = new_wb.active
@@ -126,19 +126,19 @@ def start_cleanse():
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Save Cleansed Data",
-                initialfile="Output_ADP_Deficiency_Recertification_Report_Cleansed.xlsx"
+                title="Save Cleaned Data",
+                initialfile="Output_ADP_Deficiency_Recertification_Report_Cleaned.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
                 progress_bar.pack_forget()
                 return
             new_wb.save(save_path)
-            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
+            messagebox.showinfo("Success", f"Cleaned data saved to: {save_path}")
 
         elif report_type == "Policies_Certifications_Vaccines_Licences":
             # Handle Policies, Certifications, Vaccines, and Licenses logic
-            wb = openpyxl.load_workbook(cleanse_file_path)
+            wb = openpyxl.load_workbook(clean_file_path)
             sheet = wb.active
             new_wb = openpyxl.Workbook()
             new_sheet = new_wb.active
@@ -184,15 +184,15 @@ def start_cleanse():
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                title="Save Cleansed Data",
-                initialfile="Output_ADP_Policies_Certifications_Vaccines_Licences_Report_Cleansed.xlsx"
+                title="Save Cleaned Data",
+                initialfile="Output_ADP_Policies_Certifications_Vaccines_Licences_Report_Cleaned.xlsx"
             )
             if not save_path:
                 messagebox.showinfo("Cancelled", "Save operation was cancelled.")
                 progress_bar.pack_forget()
                 return
             new_wb.save(save_path)
-            messagebox.showinfo("Success", f"Cleansed data saved to: {save_path}")
+            messagebox.showinfo("Success", f"Cleaned data saved to: {save_path}")
     except Exception as e:
         messagebox.showerror("Error", f"An error occurred: {e}")
     finally:
@@ -210,7 +210,7 @@ transform_file_path = ""
 course_mapping_file_path = ""
 user_list_file_path = ""
 
-def browse_transform_main_file():
+def select_transform_file():
     """Browse and select the main Excel file for transformation."""
     global transform_file_path
     file_path = filedialog.askopenfilename(
@@ -218,11 +218,11 @@ def browse_transform_main_file():
     )
     if file_path:
         transform_file_path = file_path
-        transform_main_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
+        transform_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
     else:
-        transform_main_file_label.config(text="No file selected")
+        transform_file_label.config(text="No file selected")
 
-def browse_course_mapping_file():
+def select_course_mapping_file():
     """Browse and select the course mapping Excel file."""
     global course_mapping_file_path
     file_path = filedialog.askopenfilename(
@@ -234,7 +234,7 @@ def browse_course_mapping_file():
     else:
         course_mapping_file_label.config(text="No file selected")
 
-def browse_user_list_file():
+def select_user_list_file():
     """Browse and select the user list Excel file."""
     global user_list_file_path
     file_path = filedialog.askopenfilename(
@@ -246,7 +246,7 @@ def browse_user_list_file():
     else:
         user_list_file_label.config(text="No file selected")
 
-def start_transformation_logic():
+def start_transform_logic():
     """Perform the transformation logic as per the requirements."""
     if not (transform_file_path and course_mapping_file_path and user_list_file_path):
         messagebox.showerror("Error", "Please upload all required files.")
@@ -779,37 +779,6 @@ def start_compare_logic():
                                     f"{adp_date_finished},{adp_expiration_date},"
                                     f"{compare_row_idx}"
                                 )
-
-                                #region commented backup code
-                                '''
-                                # Treat reference values as None if they equal to "'-"
-                                for key in ["date started", "date finished", "expiration date"]:
-                                    col_name = f"course {i} {key}"
-                                    if reference_values[col_name] == "'-":
-                                        reference_values[col_name] = None
-
-                                # Compare and update the Compare sheet if necessary
-                                if reference_values[f"course {i} date started"] and (
-                                    not compare_values[f"course {i} date started"]
-                                    or reference_values[f"course {i} date started"] > compare_values[f"course {i} date started"]
-                                ):
-                                    # Update the Compare sheet
-                                    for key in ["status", "date started", "date finished", "expiration date"]:
-                                        col_name = f"course {i} {key}"
-                                        compare_sheet.cell(row=compare_row_idx, column=compare_indices[col_name] + 1).value = reference_values[col_name]
-
-                                    # Log the update
-                                    logging.info(
-                                        f"{compare_key},{compare_last_name},{compare_first_name},"
-                                        f"{compare_row_idx},Course {i},{compare_values[f'course {i}']},"
-                                        f"{compare_values[f'course {i} status']},{reference_values[f'course {i} status']},"
-                                        f"{compare_values[f'course {i} date started']},{reference_values[f'course {i} date started']},"
-                                        f"{compare_values[f'course {i} date finished']},{reference_values[f'course {i} date finished']},"
-                                        f"{compare_values[f'course {i} expiration date']},{reference_values[f'course {i} expiration date']}"
-                                    )
-
-                                '''
-                                #endregion
             
             # Update the progress bar
             progress_bar["value"] = compare_row_idx - 1  # Adjust for 1-based indexing
@@ -876,49 +845,51 @@ footer_label = tk.Label(
 footer_label.pack(side="right", padx=10)
 
 # Define frames for each screen in the content area
-cleanse_frame = tk.Frame(content_frame, bg="#F5F5F5")
+clean_frame = tk.Frame(content_frame, bg="#F5F5F5")
 transform_frame = tk.Frame(content_frame, bg="#F5F5F5")
 transfer_frame = tk.Frame(content_frame, bg="#F5F5F5")
 compare_frame = tk.Frame(content_frame, bg="#F5F5F5")
 
 # Place all frames on the same stack
-for frame in (cleanse_frame, transform_frame, transfer_frame, compare_frame):
+for frame in (clean_frame, transform_frame, transfer_frame, compare_frame):
     frame.place(relwidth=1, relheight=1)
 
-# region Cleanse Screen widgets
-# Add widgets to the Cleanse Screen
-tk.Label(cleanse_frame, text="Cleanse Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+# region Clean Screen widgets
+# Add widgets to the Clean Screen
+tk.Label(clean_frame, text="Clean Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
-label_select_report = tk.Label(cleanse_frame, text="Select Report", font=("Arial", 12), bg="#F5F5F5")
+label_select_report = tk.Label(clean_frame, text="Select Report to Clean", font=("Arial", 12), bg="#F5F5F5")
 label_select_report.pack(pady=5)
 
 selected_report = tk.StringVar(value="Deficiency_Recertification")  # Default report selection
 
 radio_deficiency = tk.Radiobutton(
-    cleanse_frame, text="ADP Deficiency_Recertification Report", variable=selected_report,
+    clean_frame, text="ADP Deficiency_Recertification Report", variable=selected_report,
     value="Deficiency_Recertification", bg="#F5F5F5", font=("Arial", 10)
 )
 radio_deficiency.pack(anchor="w", padx=(50, 0), pady=(10, 0))
 
 radio_policies = tk.Radiobutton(
-    cleanse_frame, text="ADP Policies_Certifications_Vaccines_Licences Report", variable=selected_report,
+    clean_frame, text="ADP Policies_Certifications_Vaccines_Licences Report", variable=selected_report,
     value="Policies_Certifications_Vaccines_Licences", bg="#F5F5F5", font=("Arial", 10)
 )
 radio_policies.pack(anchor="w", padx=(50, 0), pady=(0, 0))
 
 radio_courses = tk.Radiobutton(
-    cleanse_frame, text="ADP All_Course_Progresses Report", variable=selected_report,
+    clean_frame, text="ADP All_Course_Progresses Report", variable=selected_report,
     value="All_Course_Progresses", bg="#F5F5F5", font=("Arial", 10)
 )
 radio_courses.pack(anchor="w", padx=(50, 0), pady=(0, 10))
 
-file_button = tk.Button(cleanse_frame, text="Browse", font=("Arial", 12), command=browse_file)
-file_button.pack(pady=5)
+clean_browse_button = tk.Button(clean_frame, text="Select Report", font=("Arial", 12),
+                                width=25, height=1, command=select_clean_file)
+clean_browse_button.pack(pady=5)
 
-file_label = tk.Label(cleanse_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
+file_label = tk.Label(clean_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 file_label.pack(pady=5)
 
-start_button = tk.Button(cleanse_frame, text="Start Cleanse", font=("Arial", 12), command=start_cleanse)
+start_button = tk.Button(clean_frame, text="Start Clean", font=("Arial", 14, "bold"),
+                         width=20, height=2, command=start_clean_logic)
 start_button.pack(pady=10)
 # endregion
 
@@ -926,53 +897,69 @@ start_button.pack(pady=10)
 # Add widgets to the Transform Screen
 tk.Label(transform_frame, text="Transform Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
 
-tk.Button(transform_frame, text="Select Cleansed Report", font=("Arial", 12), command=browse_transform_main_file).pack(pady=5)
-transform_main_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
-transform_main_file_label.pack(pady=5)
+transform_browse_button = tk.Button(transform_frame, text="Select Cleaned Report", font=("Arial", 12),
+                                           width=25, height=1, command=select_transform_file)
+transform_browse_button.pack(pady=5)
 
-tk.Button(transform_frame, text="Add Course Mapping", font=("Arial", 12), command=browse_course_mapping_file).pack(pady=5)
-course_mapping_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
+transform_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
+transform_file_label.pack(pady=5)
+
+transform_course_mapping_button = tk.Button(transform_frame, text="Add Course Mapping", font=("Arial", 12),
+                                            width=25, height=1, command=select_course_mapping_file)
+transform_course_mapping_button.pack(pady=5)
+
+course_mapping_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 course_mapping_file_label.pack(pady=5)
 
-tk.Button(transform_frame, text="Add User List", font=("Arial", 12), command=browse_user_list_file).pack(pady=5)
-user_list_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10))
+transform_user_list_button = tk.Button(transform_frame, text="Add User List", font=("Arial", 12),
+                                       width=25, height=1, command=select_user_list_file)
+transform_user_list_button.pack(pady=5)
+
+user_list_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 user_list_file_label.pack(pady=5)
 
-tk.Button(transform_frame, text="Start Transformation", font=("Arial", 12), command=start_transformation_logic).pack(pady=10)
+start_transform_button = tk.Button(transform_frame, text="Start Transform", font=("Arial", 14, "bold"),
+                                   width=20, height=2, command=start_transform_logic)
+start_transform_button.pack(pady=10)
 # endregion
 
 # region Transfer Screen widgets
 # Add widgets to the Transfer Screen
-tk.Label(transfer_frame, text="Transfer Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+tk.Label(transfer_frame, text="Transfer Report", bg="#F5F5F5", font=("Arial", 16)).pack(pady=30)
 
-transfer_browse_button = tk.Button(transfer_frame, text="Browse", font=("Arial", 12), command=select_transfer_file)
+transfer_browse_button = tk.Button(transfer_frame, text="Select Output Report", font=("Arial", 12),
+                                   width=25, height=1, command=select_transfer_file)
 transfer_browse_button.pack(pady=5)
 
 transfer_file_label = tk.Label(transfer_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 transfer_file_label.pack(pady=5)
 
-start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 12), command=start_transfer_logic)
-start_transfer_button.pack(pady=10)
+start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 14, "bold"),
+                                  width=20, height=2, command=start_transfer_logic)
+start_transfer_button.pack(pady=30)
 # endregion
 
 # region Compare Screen widgets
 # Add widgets to the Compare Screen
-tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=10)
+tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=30)
 
-compare_browse_button = tk.Button(compare_frame, text="Select Generated Report", font=("Arial", 12), command=select_compare_file)
+compare_browse_button = tk.Button(compare_frame, text="Select Generated Report", font=("Arial", 12),
+                                  width=25, height=1, command=select_compare_file)
 compare_browse_button.pack(pady=5)
 
 compare_file_label = tk.Label(compare_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 compare_file_label.pack(pady=5)
 
-reference_browse_button = tk.Button(compare_frame, text="Select Downloaded Report", font=("Arial", 12), command=select_reference_file)
+reference_browse_button = tk.Button(compare_frame, text="Select Reference Report", font=("Arial", 12),
+                                    width=25, height=1, command=select_reference_file)
 reference_browse_button.pack(pady=5)
 
 reference_file_label = tk.Label(compare_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 reference_file_label.pack(pady=5)
 
-start_compare_button = tk.Button(compare_frame, text="Start Compare", font=("Arial", 12), command=start_compare_logic)
-start_compare_button.pack(pady=10)
+start_compare_button = tk.Button(compare_frame, text="Start Compare", font=("Arial", 14, "bold"),
+                                 width=20, height=2, command=start_compare_logic)
+start_compare_button.pack(pady=30)
 # endregion
 
 # Bring the selected frame to the front
@@ -1008,7 +995,7 @@ def resize_buttons():
 
 # Define button properties
 buttons = [(text, "#E90000", frame) for text, frame in [
-    ("Cleanse", cleanse_frame),
+    ("Clean", clean_frame),
     ("Transform", transform_frame),
     ("Transfer", transfer_frame),
     ("Compare", compare_frame),
@@ -1037,7 +1024,7 @@ for text, color, frame in buttons:
 menu_frame.bind("<Configure>", lambda e: resize_buttons())
 
 # Show the first screen by default
-show_frame(cleanse_frame)
+show_frame(clean_frame)
 
 # Run the application
 root.mainloop()
