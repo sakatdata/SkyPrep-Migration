@@ -274,6 +274,9 @@ def start_transform_logic():
         transformed_sheet = transformed_wb.active
         transformed_sheet.title = "Transformed Data"
 
+        # Create a separate sheet for "Discarded Data"
+        discarded_sheet = transformed_wb.create_sheet(title="Discarded Data")
+
         # Create a separate sheet for rows with "Login Status: Not found"
         not_found_sheet = transformed_wb.create_sheet(title="Not Found Records")
 
@@ -303,13 +306,6 @@ def start_transform_logic():
         ]
         transformed_sheet.append(transformed_headers)
 
-        # Write the headers to the Not Found Records sheet
-        no_records_headers = ["Position ID", "Payroll Name", "Login Status"]
-        not_found_sheet.append(no_records_headers)
-
-        # Create a set to track unique position IDs in the Not Found Records sheet
-        existing_position_ids = set()
-
         # Extract headers from the main file
         main_headers = [cell.value for cell in main_sheet[1]]
 
@@ -324,6 +320,17 @@ def start_transform_logic():
         if missing_headers:
             messagebox.showerror("Error", f"Missing required columns in main file: {', '.join(missing_headers)}")
             return
+
+        # Write the headers to the Not Found Records sheet
+        no_records_headers = ["Position ID", "Payroll Name", "Login Status"]
+        not_found_sheet.append(no_records_headers)
+
+        # Write headers from the original source file to the "Discarded Data" sheet
+        discarded_headers = main_headers  # Same headers as the headers from main file
+        discarded_sheet.append(discarded_headers)
+
+        # Create a set to track unique position IDs in the Not Found Records sheet
+        existing_position_ids = set()
         
         # Initialize progress bar
         total_rows = main_sheet.max_row - 1  # Exclude the header row
@@ -358,9 +365,11 @@ def start_transform_logic():
                     course_name_skyprep = mapping_row[2]
                     break
 
-            # Skip the row if the corresponding course mapping value is Discard
+            # If course is marked as "Discard", store it in the Discarded Data sheet
             if course_name_skyprep == "Discard":
+                discarded_sheet.append(list(row))
                 continue
+            
             # Check if course mapping not found
             elif course_name_skyprep == None:
                 course_name_skyprep = "Course Mapping Not Found"
@@ -888,7 +897,7 @@ clean_browse_button.pack(pady=5)
 file_label = tk.Label(clean_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 file_label.pack(pady=5)
 
-start_button = tk.Button(clean_frame, text="Start Clean", font=("Arial", 14, "bold"),
+start_button = tk.Button(clean_frame, text="Start Clean", font=("Arial", 14),
                          width=20, height=2, command=start_clean_logic)
 start_button.pack(pady=10)
 # endregion
@@ -918,7 +927,7 @@ transform_user_list_button.pack(pady=5)
 user_list_file_label = tk.Label(transform_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 user_list_file_label.pack(pady=5)
 
-start_transform_button = tk.Button(transform_frame, text="Start Transform", font=("Arial", 14, "bold"),
+start_transform_button = tk.Button(transform_frame, text="Start Transform", font=("Arial", 14),
                                    width=20, height=2, command=start_transform_logic)
 start_transform_button.pack(pady=10)
 # endregion
@@ -934,14 +943,14 @@ transfer_browse_button.pack(pady=5)
 transfer_file_label = tk.Label(transfer_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 transfer_file_label.pack(pady=5)
 
-start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 14, "bold"),
+start_transfer_button = tk.Button(transfer_frame, text="Start Transfer", font=("Arial", 14),
                                   width=20, height=2, command=start_transfer_logic)
 start_transfer_button.pack(pady=30)
 # endregion
 
 # region Compare Screen widgets
 # Add widgets to the Compare Screen
-tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=30)
+tk.Label(compare_frame, text="Compare Reports", bg="#F5F5F5", font=("Arial", 16)).pack(pady=20)
 
 compare_browse_button = tk.Button(compare_frame, text="Select Generated Report", font=("Arial", 12),
                                   width=25, height=1, command=select_compare_file)
@@ -957,7 +966,7 @@ reference_browse_button.pack(pady=5)
 reference_file_label = tk.Label(compare_frame, text="No file selected", bg="#F5F5F5", font=("Arial", 10), wraplength=400)
 reference_file_label.pack(pady=5)
 
-start_compare_button = tk.Button(compare_frame, text="Start Compare", font=("Arial", 14, "bold"),
+start_compare_button = tk.Button(compare_frame, text="Start Compare", font=("Arial", 14),
                                  width=20, height=2, command=start_compare_logic)
 start_compare_button.pack(pady=30)
 # endregion
