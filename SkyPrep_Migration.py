@@ -137,20 +137,25 @@ def start_clean_logic():
             messagebox.showinfo("Success", f"Cleaned data saved to: {save_path}")
 
         elif report_type == "Policies_Certifications_Vaccines_Licences":
-            # Handle Policies, Certifications, Vaccines, and Licenses logic
+            # Handle Policies, Certifications, Vaccines and Licenses logic
             wb = openpyxl.load_workbook(clean_file_path)
             sheet = wb.active
             new_wb = openpyxl.Workbook()
             new_sheet = new_wb.active
 
+            existing_columns = [
+                "Position ID", "Payroll Name", "License/Certification Description",
+                "Effective Date", "Expiration Date", "Hire Date",
+            ]
             required_columns = [
                 "Position ID", "Payroll Name", "Course Name Description",
                 "Start Date", "Recertification Date", "Acquired Date",
             ]
-            headers = [cell.value for cell in sheet[1]]
-            required_indices = [headers.index(col) for col in required_columns]
-
             new_sheet.append(required_columns)
+
+            existing_headers = [cell.value for cell in sheet[1]]
+            existing_indices = [existing_headers.index(col) for col in existing_columns]
+
             total_rows = sheet.max_row - 1
             progress_bar["maximum"] = total_rows
 
@@ -158,28 +163,38 @@ def start_clean_logic():
                 progress_bar["value"] = idx
                 progress_bar.update()
                 row_list = list(row)
-                filtered_row = [row_list[idx] for idx in required_indices]
+                filtered_row = [row_list[idx] for idx in existing_indices]
 
-                start_date = filtered_row[required_columns.index("Start Date")]
-                recertification_date = filtered_row[required_columns.index("Recertification Date")]
-                acquired_date = filtered_row[required_columns.index("Acquired Date")]
+                position_id = filtered_row[existing_columns.index("Position ID")]
+                payroll_name = filtered_row[existing_columns.index("Payroll Name")]
+                course_name_description = filtered_row[existing_columns.index("License/Certification Description")]
+                
+                start_date = filtered_row[existing_columns.index("Effective Date")]
+                recertification_date = filtered_row[existing_columns.index("Expiration Date")]
+                hire_date = filtered_row[existing_columns.index("Hire Date")]
 
-                if start_date and not recertification_date and not acquired_date:
-                    pass
-                elif start_date and acquired_date and not recertification_date:
-                    filtered_row[required_columns.index("Recertification Date")] = None
-                    filtered_row[required_columns.index("Acquired Date")] = None
-                elif start_date and recertification_date:
-                    if recertification_date > start_date:
-                        filtered_row[required_columns.index("Acquired Date")] = start_date
-                    elif recertification_date == start_date:
-                        filtered_row[required_columns.index("Recertification Date")] = None
-                        filtered_row[required_columns.index("Acquired Date")] = None
-                    elif recertification_date < start_date:
-                        filtered_row[required_columns.index("Recertification Date")] = None
-                        filtered_row[required_columns.index("Acquired Date")] = None
+                if start_date == None:
+                    if recertification_date == None:
+                        start_date = hire_date
+                        acquired_date = None
+                    else:
+                        start_date = hire_date
+                        acquired_date = start_date
+                else:
+                    acquired_date = start_date
+                    if recertification_date == None:
+                        recertification_date = datetime(2050, 1, 1)
 
-                new_sheet.append(filtered_row)
+                if recertification_date == hire_date:
+                    acquired_date == None
+                    recertification_date == None
+
+                # Prepare the row for the new sheet
+                transformed_row = [
+                    position_id or "", payroll_name or "", course_name_description or "",
+                    start_date or "", recertification_date or "", acquired_date or ""
+                ]
+                new_sheet.append(transformed_row)
 
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
