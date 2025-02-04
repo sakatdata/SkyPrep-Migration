@@ -471,7 +471,7 @@ def select_transfer_file():
     else:
         transfer_file_label.config(text="No file selected")
 
-def generate_destination_columns(max_courses=72):
+def generate_destination_columns(max_courses=84):
     """Dynamically generate destination columns."""
     columns = ['skyprep_internal_id', 'first_name', 'last_name', 'email_or_username', 'work_phone']
     for i in range(1, max_courses + 1):
@@ -656,7 +656,7 @@ def start_compare_logic():
 
         # Define the key column for matching rows and declare the total number of courses
         key_column = "skyprep_internal_id"
-        max_courses = 72
+        max_courses = 84
 
         # Find the index of the key column in both sheets
         compare_key_idx = compare_headers.index(key_column)
@@ -841,6 +841,10 @@ root.title("SkyPrep Migration Tool")
 root.geometry("600x400")
 root.minsize(600, 400)  # Set minimum size to prevent distortion
 root.configure(bg="#2E2E2E")  # Background color
+
+# Set favicon path for logo at the top left corner of the frame
+icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favicon.ico")
+root.iconbitmap(icon_path)
 
 # Main container frames
 main_frame = tk.Frame(root)
